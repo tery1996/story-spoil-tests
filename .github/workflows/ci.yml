@@ -9,19 +9,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📥 Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: 🔧 Setup .NET SDK
+      - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x' # use the version your project targets
+          dotnet-version: 8.x
 
-      - name: 📦 Restore dependencies
-        run: dotnet restore ExamQAFinal.sln
+      - name: Restore dependencies
+        run: dotnet restore ExamQAFinal/ExamQAFinal.csproj
 
-      - name: 🏗️ Build solution
+      - name: Build solution
         run: dotnet build ExamQAFinal.sln --configuration Release --no-restore
 
-      - name: ✅ Run tests
+      - name: Run tests
         run: dotnet test ExamQAFinal.sln --configuration Release --no-build --verbosity normal
