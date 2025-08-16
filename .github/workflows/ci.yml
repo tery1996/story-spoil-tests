@@ -1,0 +1,27 @@
+name: CI - Build and Test
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x' # use the version your project targets
+
+      - name: 📦 Restore dependencies
+        run: dotnet restore ExamQAFinal.sln
+
+      - name: 🏗️ Build solution
+        run: dotnet build ExamQAFinal.sln --configuration Release --no-restore
+
+      - name: ✅ Run tests
+        run: dotnet test ExamQAFinal.sln --configuration Release --no-build --verbosity normal
