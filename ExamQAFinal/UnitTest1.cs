@@ -1,9 +1,11 @@
 
 
 
+
 using RestSharp;
 using RestSharp.Authenticators;
 using System.Net;
+using System.Text.Json;
 
 namespace ExamQAFinal
 {
@@ -31,12 +33,26 @@ namespace ExamQAFinal
         {
             _client = new RestClient(BaseUrl);
 
-            // authenticate (replace with your real username/password!)
+            
             var request = new RestRequest("/User/Authentication", Method.Post);
             request.AddJsonBody(new { userName = "marto0981", password = "121212" });
 
-            var response = _client.ExecuteAsync<dynamic>(request).Result;
-            _token = response.Data.accessToken;
+            var response = _client.ExecuteAsync(request).Result;
+
+            // Parse the response content as JSON
+            using var doc = JsonDocument.Parse(response.Content);
+            var root = doc.RootElement;
+
+            // Check if accessToken exists
+            if (root.TryGetProperty("accessToken", out var accessTokenProp))
+            {
+                _token = accessTokenProp.GetString();
+            }
+            else
+            {
+                throw new Exception("accessToken not found in response: " + response.Content);
+            }
+
 
             _client = new RestClient(new RestClientOptions(BaseUrl)
             {
