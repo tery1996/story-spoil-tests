@@ -1,7 +1,3 @@
-
-
-
-
 using RestSharp;
 using RestSharp.Authenticators;
 using System.Net;
@@ -9,18 +5,6 @@ using System.Text.Json;
 
 namespace ExamQAFinal
 {
-    public class ApiResponseDTO
-    {
-        public string Msg { get; set; }
-        public string StoryId { get; set; }
-    }
-
-    public class StoryDTO
-    {
-        public string Title { get; set; }
-        public string Description { get; set; }
-        public string Url { get; set; }
-    }
     [TestFixture]
     public class Tests
     {
@@ -28,31 +12,28 @@ namespace ExamQAFinal
         private RestClient _client;
         private static string _token;
         private static string _storyId;
+
         [SetUp]
         public void Setup()
         {
             _client = new RestClient(BaseUrl);
 
-            
             var request = new RestRequest("/User/Authentication", Method.Post);
             request.AddJsonBody(new { userName = "marto0981", password = "121212" });
 
             var response = _client.ExecuteAsync(request).Result;
 
-            // Parse the response content as JSON
             using var doc = JsonDocument.Parse(response.Content);
             var root = doc.RootElement;
 
-            // Check if accessToken exists
-            if (root.TryGetProperty("accessToken", out var accessTokenProp))
+            if (root.TryGetProperty("accessToken", out var at))
             {
-                _token = accessTokenProp.GetString();
+                _token = at.GetString();
             }
             else
             {
-                throw new Exception("accessToken not found in response: " + response.Content);
+                throw new Exception("accessToken was not found in response: " + response.Content);
             }
-
 
             _client = new RestClient(new RestClientOptions(BaseUrl)
             {
@@ -64,81 +45,73 @@ namespace ExamQAFinal
         public void CreateStorySpoiler()
         {
             var request = new RestRequest("/Story/Create", Method.Post);
-
-            var story = new
+            request.AddJsonBody(new
             {
                 title = "My First Exam Story",
                 description = "This is a spoiler for the exam system",
                 url = ""
-            };
+            });
 
-            request.AddJsonBody(story);
-
-            var response = _client.ExecuteAsync<dynamic>(request).Result;
-
+            var response = _client.ExecuteAsync(request).Result;
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Created));
-            Assert.That((string)response.Data.msg, Is.EqualTo("Successfully created!"));
-            Assert.IsNotNull(response.Data.storyId);
 
-            _storyId = response.Data.storyId;
+            using var doc = JsonDocument.Parse(response.Content);
+            var root = doc.RootElement;
+
+            Assert.That(root.GetProperty("msg").GetString(), Is.EqualTo("Successfully created!"));
+            Assert.That(root.TryGetProperty("storyId", out var sid), "storyId field missing in response");
+            _storyId = sid.GetString();
         }
 
         [Test, Order(2)]
         public void EditStorySpoiler()
         {
             var request = new RestRequest($"/Story/Edit/{_storyId}", Method.Put);
-
-            var updatedStory = new
+            request.AddJsonBody(new
             {
                 title = "Updated Story Title",
                 description = "Updated spoiler description",
                 url = ""
-            };
+            });
 
-            request.AddJsonBody(updatedStory);
-
-            var response = _client.ExecuteAsync<dynamic>(request).Result;
-
+            var response = _client.ExecuteAsync(request).Result;
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-            Assert.That((string)response.Data.msg, Is.EqualTo("Successfully edited"));
+
+            using var doc = JsonDocument.Parse(response.Content);
+            Assert.That(doc.RootElement.GetProperty("msg").GetString(), Is.EqualTo("Successfully edited"));
         }
 
         [Test, Order(3)]
         public void GetAllStories()
         {
             var request = new RestRequest("/Story/All", Method.Get);
-
-            var response = _client.ExecuteAsync<dynamic>(request).Result;
+            var response = _client.ExecuteAsync(request).Result;
 
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
 
-            Assert.IsNotEmpty(response.Data);
-
-            TestContext.WriteLine($"Total stories returned: {response.Data.Count}");
+            using var doc = JsonDocument.Parse(response.Content);
+            Assert.IsTrue(doc.RootElement.GetArrayLength() > 0, "Returned stories array is empty");
         }
 
         [Test, Order(4)]
         public void DeleteStorySpoiler()
         {
             var request = new RestRequest($"/Story/Delete/{_storyId}", Method.Delete);
-
-            var response = _client.ExecuteAsync<dynamic>(request).Result;
+            var response = _client.ExecuteAsync(request).Result;
 
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-            Assert.That((string)response.Data.msg, Is.EqualTo("Deleted successfully!"));
+
+            using var doc = JsonDocument.Parse(response.Content);
+            Assert.That(doc.RootElement.GetProperty("msg").GetString(), Is.EqualTo("Deleted successfully!"));
         }
 
         [Test, Order(5)]
         public void CreateStoryWithoutRequiredFields()
         {
             var request = new RestRequest("/Story/Create", Method.Post);
+            request.AddJsonBody(new { url = "" });
 
-            // Missing title and description
-            var badStory = new { url = "" };
-            request.AddJsonBody(badStory);
-
-            var response = _client.ExecuteAsync<dynamic>(request).Result;
-
+            var response = _client.ExecuteAsync(request).Result;
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
         }
 
@@ -146,32 +119,30 @@ namespace ExamQAFinal
         public void EditNonExistingStory()
         {
             var request = new RestRequest("/Story/Edit/999999", Method.Put);
-
-            var story = new
+            request.AddJsonBody(new
             {
                 title = "Ghost Story",
                 description = "This story does not exist",
                 url = ""
-            };
+            });
 
-            request.AddJsonBody(story);
-
-            var response = _client.ExecuteAsync<dynamic>(request).Result;
-
+            var response = _client.ExecuteAsync(request).Result;
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
-            Assert.That((string)response.Data.msg, Is.EqualTo("No spoilers..."));
+
+            using var doc = JsonDocument.Parse(response.Content);
+            Assert.That(doc.RootElement.GetProperty("msg").GetString(), Is.EqualTo("No spoilers..."));
         }
 
         [Test, Order(7)]
         public void DeleteNonExistingStory()
         {
             var request = new RestRequest("/Story/Delete/999999", Method.Delete);
-
-            var response = _client.ExecuteAsync<dynamic>(request).Result;
+            var response = _client.ExecuteAsync(request).Result;
 
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
-            Assert.That((string)response.Data.msg, Is.EqualTo("Unable to delete this story spoiler!"));
+
+            using var doc = JsonDocument.Parse(response.Content);
+            Assert.That(doc.RootElement.GetProperty("msg").GetString(), Is.EqualTo("Unable to delete this story spoiler!"));
         }
     }
-
 }
