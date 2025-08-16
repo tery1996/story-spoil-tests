@@ -44,7 +44,7 @@ namespace ExamQAFinal
             });
         }
 
-        [Test]
+        [Test, Order(1)]
         public void CreateStorySpoiler()
         {
             var request = new RestRequest("/Story/Create", Method.Post);
